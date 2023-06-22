@@ -8,6 +8,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"log"
 	"math/rand"
+	"strconv"
 	"time"
 )
 
@@ -19,16 +20,12 @@ func (service ttsService) PublishEvent(ctx context.Context) error {
 	sequence := func() int {
 		seq := 1
 		data, err := service.redisClient.Get(ctx, domain.SequenceKey).Result()
-		if err != nil {
-			seq = 1
+		if err == nil {
+			if cacheSeq, err := strconv.Atoi(data); err == nil {
+				seq = cacheSeq
+			}
 		}
-		var cacheSeq int
-		if err := json.Unmarshal([]byte(data), &cacheSeq); err == nil {
-			seq = cacheSeq
-		}
-		if newSeq, err := json.Marshal(seq + 1); err == nil {
-			service.redisClient.Set(ctx, domain.SequenceKey, newSeq, 24*time.Hour)
-		}
+		service.redisClient.Set(ctx, domain.SequenceKey, strconv.Itoa(seq+1), 24*time.Hour)
 		return seq
 	}()
 	locket := func() int {
